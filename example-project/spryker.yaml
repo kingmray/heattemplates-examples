@@ -1,0 +1,185 @@
+heat_template_version: 2014-10-16
+
+#
+# you can deploy this template using the following command:
+# 'heat stack-create -f syseleven.yaml <stack_name>'
+#
+# after successful stack creation you can login with 
+# ssh -l <yourUser> <loadbalancerIP> 
+# 
+
+description: A template to deploy and configure a full blown server setup.
+  For demonstration pruposes there are some shell scripts that provision these servers. 
+  In production system we recommend to use tools like puppet, chef or salt for that.
+
+parameters:
+  number_appservers_yves: 
+    type: string
+    default: 2
+  number_appservers_zed: 
+    type: string
+    default: 2
+  number_appservers_redis: 
+    type: string
+    default: 1
+  number_appservers_elastic: 
+    type: string
+    default: 1
+  number_appservers_saltmaster:
+    type: string
+    default: 1
+  number_dbservers: 
+    type: string
+    default: 1
+  public_network_id:
+    type: string
+    default: 4c23774c-395b-49d0-b8e1-347e886fa9bf 
+
+resources:
+  syseleven_net:
+    type: OS::Neutron::Net
+    properties: 
+      name: syseleven-net
+
+  syseleven_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      name: syseleven_subnet
+      dns_nameservers:
+        - 37.123.105.116
+        - 37.123.105.117
+      network_id: {get_resource: syseleven_net}
+      ip_version: 4
+      cidr: 192.168.2.0/24
+      allocation_pools:
+      - {start: 192.168.2.10, end: 192.168.2.250}
+
+  syseleven_router:
+    type: OS::Neutron::Router
+    properties:
+      external_gateway_info: {"network": { get_param: public_network_id }, "enable_snat": true}
+
+  router_subnet_connect:
+    type: OS::Neutron::RouterInterface
+    depends_on: [ syseleven_subnet, syseleven_router, syseleven_net ]
+    properties:
+      router_id: { get_resource: syseleven_router }
+      subnet: { get_resource: syseleven_subnet }
+
+  ### LB Node as resource group ###
+  #######################
+  lb_yves_group:
+    type: OS::Heat::ResourceGroup
+    depends_on: [ syseleven_net, syseleven_subnet, router_subnet_connect, saltmaster_group ]
+    properties:
+      count: 1 
+      resource_def: 
+        type: lb-yves.yaml
+        properties:
+          name: lbyves%index%
+          syseleven_net: { get_resource: syseleven_net }
+          public_network_id: { get_param: public_network_id }
+
+  
+  ### LB Node as resource group ###
+  #######################
+  lb_zed_group:
+    type: OS::Heat::ResourceGroup
+    depends_on: [ syseleven_net, syseleven_subnet, router_subnet_connect, saltmaster_group ]
+    properties:
+      count: 1 
+      resource_def: 
+        type: lb-zed.yaml
+        properties:
+          name: lbzed%index%
+          syseleven_net: { get_resource: syseleven_net }
+          public_network_id: { get_param: public_network_id }
+
+ 
+  ### Appserver nodes as resource group ###
+  #######################
+  appserver_yves_group:
+    type: OS::Heat::ResourceGroup
+    depends_on: [ syseleven_net, syseleven_subnet, saltmaster_group ]
+    properties:
+      count: { get_param: number_appservers_yves } 
+      resource_def: 
+        type: appserver-yves.yaml
+        properties:
+          name: appyves%index%
+          syseleven_net: { get_resource: syseleven_net }
+          public_network_id: { get_param: public_network_id }
+
+  
+  ### Appserver nodes as resource group ###
+  #######################
+  appserver_zed_group:
+    type: OS::Heat::ResourceGroup
+    depends_on: [ syseleven_net, syseleven_subnet, saltmaster_group ]
+    properties:
+      count: { get_param: number_appservers_zed } 
+      resource_def: 
+        type: appserver-zed.yaml
+        properties:
+          name: appzed%index%
+          syseleven_net: { get_resource: syseleven_net }
+          public_network_id: { get_param: public_network_id }
+
+ 
+  ### Appserver nodes as resource group ###
+  #######################
+  redis_group:
+    type: OS::Heat::ResourceGroup
+    depends_on: [ syseleven_net, syseleven_subnet, saltmaster_group ]
+    properties:
+      count: { get_param: number_appservers_redis } 
+      resource_def: 
+        type: redis.yaml
+        properties:
+          name: redis%index%
+          syseleven_net: { get_resource: syseleven_net }
+          public_network_id: { get_param: public_network_id }
+
+  
+  ### Appserver nodes as resource group ###
+  #######################
+  elastic_group:
+    type: OS::Heat::ResourceGroup
+    depends_on: [ syseleven_net, syseleven_subnet, saltmaster_group ]
+    properties:
+      count: { get_param: number_appservers_elastic } 
+      resource_def: 
+        type: elastic.yaml
+        properties:
+          name: elastic%index%
+          syseleven_net: { get_resource: syseleven_net }
+          public_network_id: { get_param: public_network_id }
+
+  ### DBserver Nodes as resource group ###
+  #######################
+  dbserver_group:
+    type: OS::Heat::ResourceGroup
+    depends_on: [ syseleven_net, syseleven_subnet, saltmaster_group ]
+    properties:
+      count: { get_param: number_dbservers } 
+      resource_def: 
+        type: dbserver.yaml
+        properties:
+          name: db%index%
+          syseleven_net: { get_resource: syseleven_net }
+
+
+  
+  ### Appserver nodes as resource group ###
+  #######################
+  saltmaster_group:
+    type: OS::Heat::ResourceGroup
+    depends_on: [ syseleven_net, syseleven_subnet ]
+    properties:
+      count: { get_param: number_appservers_saltmaster } 
+      resource_def: 
+        type: salt-master.yaml
+        properties:
+          name: saltmaster
+          syseleven_net: { get_resource: syseleven_net }
+          public_network_id: { get_param: public_network_id }

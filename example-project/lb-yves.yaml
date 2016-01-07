@@ -3,12 +3,12 @@ heat_template_version: 2014-10-16
 parameters:
   name:
     type: string
-    default: dbserver
+    default: lbserver
   syseleven_net:
     type: string
   public_network_id:
     type: string
-    default: dc4d2dfb-f8d2-461c-9f16-636edbf99a0f
+    default: 4c23774c-395b-49d0-b8e1-347e886fa9bf 
 
 resources:
   allow_ssh:
@@ -16,16 +16,19 @@ resources:
     properties:
       description: allow incoming traffic from anywhere.
       name: allow incoming traffic, tcp
-      rules: [{direction: ingress, remote_ip_prefix: 0.0.0.0/0, port_range_min: 22, port_range_max: 22, protocol: tcp} , {direction: ingress, protocol: icmp}]
+      rules: 
+        - {direction: ingress, remote_ip_prefix: 0.0.0.0/0, port_range_min: 22, port_range_max: 22, protocol: tcp}
+        - direction: ingress
+          protocol: icmp
 
-  allow_dbtraffic:
+  allow_webtraffic:
     type: OS::Neutron::SecurityGroup
     properties:
-      description: allow incoming db traffic from anywhere.
-      name: allow incoming db traffic
-      rules: [{direction: ingress, remote_ip_prefix: 192.168.2.0/24, port_range_min: 5432, port_range_max: 5432, protocol: tcp}, {direction: ingress, protocol: icmp} ]
+      description: allow incoming web traffic from anywhere.
+      name: allow incoming web traffic
+      rules: [{direction: ingress, remote_ip_prefix: 0.0.0.0/0, port_range_min: 80, port_range_max: 80, protocol: tcp}, {direction: ingress, remote_ip_prefix: 0.0.0.0/0, port_range_min: 443, port_range_max: 443, protocol: tcp} ]
 
-  syseleven_dbserver:
+  syseleven_lbserver:
     type: OS::Nova::Server
     properties:
       name: { get_param: name }
@@ -42,20 +45,20 @@ resources:
    properties:
      cloud_config:
        runcmd:
-         - /root/install_spryker.sh
+         - /root/install_lb.sh
        write_files:
+         -  content: { get_file: scripts/install_lb.sh }
+            permissions: 0755
+            path: /root/install_lb.sh
          -  content: { get_file: config/avahi-http.service }
             permissions: 0644
             path: /etc/avahi/services/avahi-http.service
-         -  content: { get_file: scripts/install_spryker.sh }
-            permissions: 0755
-            path: /root/install_spryker.sh
          -  content: { get_file: scripts/update_sessionconfig }
             permissions: 0700
             path: /usr/local/sbin/update_sessionconfig
        users:
            - name: syseleven
-             gecos: workshop user
+             gecos:  Workshop user
              lock-passwd: false
              sudo: ALL=(ALL) NOPASSWD:ALL
              shell: /bin/bash
@@ -68,9 +71,19 @@ resources:
                - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC/xTIuB5qVY4NrsdpC6mWMtlE6R9ZJb2YuN4OJXId8EBMKyWx0VwndB9JgwXdLnmjrxAOe78A2Hl7j6iD++QOIQas6SLUj7cp5M4I2y5aS5sgVz/jeqoCSgC4oG8kQyUGfWMlKXsqGOdq6pv5P6DDTkbuqkxxlx5N3PplalvCE9X2l9Mq23bZlplrHi/1slQfJi0F9cAMJjAjDAnajEAiajsSk63N5ZawxJmX9u4wvHwjqPI21xnbstjod8N1GaaTJrx7XkB1EGLi63SMNDsGS6SqN51blijEdBGsxHzFOD2doE7quuGaGSjCpveAb1AHqUMSnJNbHSjWZqMRvg+lHd0sJFt/oPaZvi6fNmrytr0Fvdq8Lytlquo7L189kgfw3xH5TmtC7/EHiFDdBFKVyrbOEQewHvgh14zJkiSvW8/F9ZSLNoJ5fiJAD3UokzWGg+8CDG7HVBMMWDVWUNyKRwJL+aLCuN4w7oO89TjBAd9dOQ/rZ8C4LaZo+UpiFxdHqS7XubZllwQFlXHp3vjXitQtdL8UZCmOH7JOUil8XDv0ojV1yEv/Q3D41YqIOEyon+el01NLaUFgtiZJUXjT8+PBRn82drSwws5tM4iKxPFBQycJyqf1YhLX3gH2L5qEljzvQyKYsrFmGRU3Xpje8jq4dlj3ljBZVFsiTGayG/w== thomas.kuehnel@spryker.com'
                - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCoCBOfncGlebENcKi7fKVG+S1v2lDIprA72kd/E3eKQRHbXfQBpgBxOlG6YdhvkA1QARDFMDw/mKypM7ayaRcQ19L9+tmpXgmwHakwmTKjllp+5Y9kj4pW2zACppvQk/46EoN0ebERg4F6xnCa909GeiCOUaAsYID7qwduKrMwVhlUZxQSmJ4iJQ30pxEWJwEHzZTSoOE6zQ/3qvyYKttq4hsHz5aR8BMwEJ++wo4urrbzBwtxYc3wuLyCkg+jFieU5bQJSgKdb24PJCuQIBmducT44BuDRxzDDvKX9Yv19K/Xc/1w/rLHvcU8AHnALDucIaPRx7QCqw9/vnyKjiwp sergej.braznikov@symmetrics.de'
                - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDczm4Guot89T4IYeY/gG0TcU2XRyb6xHFPaj7mlKXH190bc65tpD6GiOlsd8MPOyWNBfw/7EU0Z5CY0L0PiBU/5eT+WcaXrs+nie89Ixl9t5aRPj6cIDxLf4n00dSGlFasRwJjkZs9SMWkbC8o2rxoWhr2Cx7QorNWrxfcgYpgtzERCJs75MLQaATQcs7sdUPbplMt9GXMYlS0N5Fwa0PLRzYepmcT7I/8mYaaJmzs1u8ZcyFlktej1q0jc8SCICQA8RafpFD54ivJvmyLxcEUisCaclVUaW5fPLtZg8XFQKPrahLquu6SuS38mYTZOB/8jsRO/d8iCG5m+BhyN4Mr raymond.schmidt@votum.de'
-
   syseleven_port:
     type: OS::Neutron::Port
     properties:
       network_id: { get_param: syseleven_net}
-      security_groups: [ {get_resource: allow_ssh}, {get_resource: allow_dbtraffic}, default ]
+      security_groups: [ {get_resource: allow_ssh}, {get_resource: allow_webtraffic}, default ]
+
+  syseleven_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: { get_param: public_network_id }
+      port_id: { get_resource: syseleven_port }
+
+outputs:
+  lb_ip:
+    description: loadbalancer floating ip
+    value: { get_resource: syseleven_floating_ip }

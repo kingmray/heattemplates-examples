@@ -3,12 +3,12 @@ heat_template_version: 2014-10-16
 parameters:
   name:
     type: string
-    default: dbserver
+    default: lbserver
   syseleven_net:
     type: string
   public_network_id:
     type: string
-    default: dc4d2dfb-f8d2-461c-9f16-636edbf99a0f
+    default: 4c23774c-395b-49d0-b8e1-347e886fa9bf 
 
 resources:
   allow_ssh:
@@ -16,16 +16,19 @@ resources:
     properties:
       description: allow incoming traffic from anywhere.
       name: allow incoming traffic, tcp
-      rules: [{direction: ingress, remote_ip_prefix: 0.0.0.0/0, port_range_min: 22, port_range_max: 22, protocol: tcp} , {direction: ingress, protocol: icmp}]
+      rules: 
+        - {direction: ingress, remote_ip_prefix: 0.0.0.0/0, port_range_min: 22, port_range_max: 22, protocol: tcp}
+        - direction: ingress
+          protocol: icmp
 
-  allow_dbtraffic:
+  allow_webtraffic:
     type: OS::Neutron::SecurityGroup
     properties:
-      description: allow incoming db traffic from anywhere.
-      name: allow incoming db traffic
-      rules: [{direction: ingress, remote_ip_prefix: 192.168.2.0/24, port_range_min: 5432, port_range_max: 5432, protocol: tcp}, {direction: ingress, protocol: icmp} ]
+      description: allow incoming web traffic from anywhere.
+      name: allow incoming web traffic
+      rules: [{direction: ingress, remote_ip_prefix: 0.0.0.0/0, port_range_min: 80, port_range_max: 80, protocol: tcp}, {direction: ingress, remote_ip_prefix: 0.0.0.0/0, port_range_min: 443, port_range_max: 443, protocol: tcp} ]
 
-  syseleven_dbserver:
+  syseleven_lbserver:
     type: OS::Nova::Server
     properties:
       name: { get_param: name }
@@ -36,26 +39,27 @@ resources:
       networks:
         - port: { get_resource: syseleven_port }
 
+
   cloud-init-config:
    # cloud init demo resource
    type: OS::Heat::CloudConfig
    properties:
      cloud_config:
        runcmd:
-         - /root/install_spryker.sh
+         - /root/install_lb.sh
        write_files:
+         -  content: { get_file: scripts/install_lb.sh }
+            permissions: 0755
+            path: /root/install_lb.sh
          -  content: { get_file: config/avahi-http.service }
             permissions: 0644
             path: /etc/avahi/services/avahi-http.service
-         -  content: { get_file: scripts/install_spryker.sh }
-            permissions: 0755
-            path: /root/install_spryker.sh
          -  content: { get_file: scripts/update_sessionconfig }
             permissions: 0700
             path: /usr/local/sbin/update_sessionconfig
        users:
            - name: syseleven
-             gecos: workshop user
+             gecos:  Workshop user
              lock-passwd: false
              sudo: ALL=(ALL) NOPASSWD:ALL
              shell: /bin/bash
@@ -73,4 +77,15 @@ resources:
     type: OS::Neutron::Port
     properties:
       network_id: { get_param: syseleven_net}
-      security_groups: [ {get_resource: allow_ssh}, {get_resource: allow_dbtraffic}, default ]
+      security_groups: [ {get_resource: allow_ssh}, {get_resource: allow_webtraffic}, default ]
+
+  syseleven_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: { get_param: public_network_id }
+      port_id: { get_resource: syseleven_port }
+
+outputs:
+  lb_ip:
+    description: loadbalancer floating ip
+    value: { get_resource: syseleven_floating_ip }

@@ -3,7 +3,7 @@ heat_template_version: 2014-10-16
 parameters:
   name:
     type: string
-    default: dbserver
+    default: appserver
   syseleven_net:
     type: string
   public_network_id:
@@ -18,20 +18,20 @@ resources:
       name: allow incoming traffic, tcp
       rules: [{direction: ingress, remote_ip_prefix: 0.0.0.0/0, port_range_min: 22, port_range_max: 22, protocol: tcp} , {direction: ingress, protocol: icmp}]
 
-  allow_dbtraffic:
+  allow_webtraffic:
     type: OS::Neutron::SecurityGroup
     properties:
-      description: allow incoming db traffic from anywhere.
-      name: allow incoming db traffic
-      rules: [{direction: ingress, remote_ip_prefix: 192.168.2.0/24, port_range_min: 5432, port_range_max: 5432, protocol: tcp}, {direction: ingress, protocol: icmp} ]
+      description: allow incoming web traffic from anywhere.
+      name: allow incoming web traffic
+      rules: [{direction: ingress, remote_ip_prefix: 0.0.0.0/0, port_range_min: 80, port_range_max: 80, protocol: tcp}, {direction: ingress, remote_ip_prefix: 0.0.0.0/0, port_range_min: 443, port_range_max: 443, protocol: tcp} ]
 
-  syseleven_dbserver:
+  syseleven_appserver:
     type: OS::Nova::Server
     properties:
       name: { get_param: name }
       user_data_format: RAW
       user_data: { get_resource: cloud-init-config }    
-      image: Ubuntu-14.04-LTS from cloud-images.ubuntu.com
+      image: Ubuntu-14.04-LTS from cloud-images.ubuntu.com 
       flavor: m1.micro
       networks:
         - port: { get_resource: syseleven_port }
@@ -55,7 +55,7 @@ resources:
             path: /usr/local/sbin/update_sessionconfig
        users:
            - name: syseleven
-             gecos: workshop user
+             gecos:  Workshop user
              lock-passwd: false
              sudo: ALL=(ALL) NOPASSWD:ALL
              shell: /bin/bash
@@ -73,4 +73,5 @@ resources:
     type: OS::Neutron::Port
     properties:
       network_id: { get_param: syseleven_net}
-      security_groups: [ {get_resource: allow_ssh}, {get_resource: allow_dbtraffic}, default ]
+      security_groups: [ {get_resource: allow_ssh}, {get_resource: allow_webtraffic}, default ]
+

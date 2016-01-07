@@ -1,0 +1,4 @@
+salt_minion:
+  conf:
+    master: saltmaster.local
+
