@@ -11,14 +11,13 @@ apt-get install -y avahi-daemon avahi-utils haveged git curl screen bc wget
 # install salt master
 apt-get install -y salt-master
 
-mkdir /srv/salt/states
-mkdir /srv/salt/pillar
+mkdir -p /srv/salt/states
+mkdir -p /srv/salt/pillar
 
 cat <<EOF> /root/.ssh/config
 Host *
     StrictHostKeyChecking=no
-Host gitlab
-    Hostname gitlab.syseleven.de
+Host gitlab.syseleven.de
     IdentityFile ~/.ssh/deploy_key
 EOF
 
