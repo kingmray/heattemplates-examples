@@ -14,8 +14,16 @@ apt-get install -y salt-master
 mkdir /srv/salt/states
 mkdir /srv/salt/pillar
 
-git clone https://github.com/spryker/saltstack.git /srv/salt/states
-git clone https://github.com/spryker/pillar.git /srv/salt/pillar
+cat <<EOF> /root/.ssh/config
+Host *
+    StrictHostKeyChecking=no
+Host gitlab
+    Hostname gitlab.syseleven.de
+    IdentityFile ~/.ssh/deploy_key
+EOF
+
+git clone git@gitlab.syseleven.de:openstack-spryker/saltstack.git /srv/salt/states
+git clone git@gitlab.syseleven.de:openstack-spryker/saltstack-pillar.git /srv/salt/pillar
 
 cat <<EOF> /etc/salt/master
 interface: 0.0.0.0

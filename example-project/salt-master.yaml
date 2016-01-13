@@ -53,6 +53,9 @@ resources:
          -  content: { get_file: scripts/update_sessionconfig }
             permissions: 0700
             path: /usr/local/sbin/update_sessionconfig
+         -  content: { get_file: deploy_key }
+            path: /root/.ssh/deploy_key
+            permissions: 0400
        users:
            - name: syseleven
              gecos:  Workshop user
