@@ -11,6 +11,8 @@ cat <<EOF> /etc/salt/minion
 master: saltmaster.local
 EOF
 
+service salt-minion restart
+
 #echo "* * * * * root /usr/local/sbin/update_sessionconfig >> /var/log/sessionconfig.log" > /etc/cron.d/update_sessionstore
 
 logger "finished appserver installation"

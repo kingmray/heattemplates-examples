@@ -25,6 +25,7 @@ file_roots:
 pillar_roots:
   base:
     - /srv/salt/pillar
+auto_accept: True
 EOF
 
 service salt-master restart
